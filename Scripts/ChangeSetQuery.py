@@ -31,26 +31,31 @@ class GerritChangeSetQuery(object):
     self._projName = projName
     self._gerritUrl = gerritUrl
 
-  def queryChangeSet(self, age="1d", limit="10", branch='master'):
-    httpUrl = ("%s/changes/?format=JSON&q=project:%s+status:open+-age:%s+branch:%s&n=%s" %
-                (self._gerritUrl, self._projName, age, branch, limit))
-    
+  def queryChangeSet(self, age="1w", limit="10", 
+                     status="open", branch='master'):
+    httpUrl = (
+      "%s/changes/?format=JSON&q=project:%s+status:%s+-age:%s+branch:%s&n=%s" %
+      (self._gerritUrl, self._projName, status, age, branch, limit)
+    )
     print httpUrl
     outputJson = self.__execQueryByCurl__(httpUrl)
+    if outputJson is None:
+      return
     for commit in outputJson:
       print commit["_number"]
       self.getCommitDetail(commit["_number"])
-  
+    # handle the case that might have nore change set
+
   def getCommitDetail(self, gerritId):
     outputDetail = "o=CURRENT_REVISION&o=CURRENT_COMMIT&o=CURRENT_FILES"
     httpUrl = ("%s/changes/?format=JSON&q=%s&%s" %
                 (self._gerritUrl, gerritId, outputDetail))
     print httpUrl
     outputJson = self.__execQueryByCurl__(httpUrl)
-    for details in outputJson:
+    for changeSet in outputJson:
       # print out the files change
-      curRev = details['current_revision']
-      commitDetail = details['revisions'][curRev]
+      curRev = changeSet['current_revision']
+      commitDetail = changeSet['revisions'][curRev]
       import pprint
       pprint.pprint(commitDetail['files'])
 
