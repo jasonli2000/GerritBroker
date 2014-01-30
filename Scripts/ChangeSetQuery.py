@@ -31,8 +31,8 @@ class GerritChangeSetQuery(object):
     self._projName = projName
     self._gerritUrl = gerritUrl
 
-  def queryChangeSet(self, age="1w", limit="10", 
-                     status="open", branch='master'):
+  def queryChangeSet(self, age="10w", limit="30",
+                     status="merged", branch='master'):
     httpUrl = (
       "%s/changes/?format=JSON&q=project:%s+status:%s+-age:%s+branch:%s&n=%s" %
       (self._gerritUrl, self._projName, status, age, branch, limit)
@@ -45,6 +45,8 @@ class GerritChangeSetQuery(object):
       print commit["_number"]
       self.getCommitDetail(commit["_number"])
     # handle the case that might have nore change set
+    if outputJson[-1].get('_more_changes'):
+      print "has more changes"
 
   def getCommitDetail(self, gerritId):
     outputDetail = "o=CURRENT_REVISION&o=CURRENT_COMMIT&o=CURRENT_FILES"
@@ -52,12 +54,33 @@ class GerritChangeSetQuery(object):
                 (self._gerritUrl, gerritId, outputDetail))
     print httpUrl
     outputJson = self.__execQueryByCurl__(httpUrl)
+    assert len(outputJson) == 1
     for changeSet in outputJson:
       # print out the files change
       curRev = changeSet['current_revision']
       commitDetail = changeSet['revisions'][curRev]
-      import pprint
-      pprint.pprint(commitDetail['files'])
+      filesChanges = commitDetail['files']
+      if self.isValidPatchChangeSet(filesChanges):
+        print "This is a valid Patch changeset"
+      else:
+        print "This is not a Valid Patch changeset"
+
+  def isValidPatchChangeSet(self, filesJson):
+    for changeFile in filesJson.iterkeys():
+      # the change is under Packages Dir and has /Patch/ in the path
+      print changeFile
+      print filesJson[changeFile]
+      if ( changeFile.startswith("Packages") or
+           changeFile.find('/Patches/') >=0 and
+           ( changeFile.endswith("KIDs") or
+             changeFile.endswith("KID") ) ):
+        if 'status' in filesJson[changeFile]:
+          fileStatus = filesJson[changeFile]['status']
+          if fileStatus != 'R':
+            return True
+          elif filesJson[changeFile]['old_path'].startswith('FOIA'):
+            return True
+    return False
 
   def __execQueryByCurl__(self, queryUrl):
     cmdList = ['curl', "-s" , queryUrl]
@@ -65,11 +88,10 @@ class GerritChangeSetQuery(object):
     try:
       output = subprocess.Popen(cmdList, stdout=subprocess.PIPE).communicate()[0]
       output = output.strip(' \r\n')
-      print output
       """ get rid of the header """
       if output.find(self.GERRIT_JSON_HEADER) == 0:
         output = output[len(self.GERRIT_JSON_HEADER):]
-      outputJson = json.loads(output)
+        outputJson = json.loads(output)
     except OSError as ex:
       print ex
     return outputJson
@@ -80,7 +102,8 @@ GERRIT_PROJECT_NAME = "VistA-Patches"
 def main():
   changeQuery = GerritChangeSetQuery(GERRIT_URL,
                                      GERRIT_PROJECT_NAME)
-  changeQuery.queryChangeSet()
+  #changeQuery.queryChangeSet()
+  changeQuery.getCommitDetail("292")
 
 if __name__ == '__main__':
   main()
