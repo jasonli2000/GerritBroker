@@ -96,14 +96,16 @@ class GerritChangeSetQuery(object):
       print ex
     return outputJson
 
-GERRIT_URL = "http://review.code.osehra.org"
-GERRIT_PROJECT_NAME = "VistA-Patches"
+OSEHRA_GERRIT_URL = "http://review.code.osehra.org"
+OSEHRA_VISTA_GERRIT_PROJECT_NAME = "VistA"
 
 def main():
-  changeQuery = GerritChangeSetQuery(GERRIT_URL,
-                                     GERRIT_PROJECT_NAME)
-  #changeQuery.queryChangeSet()
-  changeQuery.getCommitDetail("292")
+  import sys
+  commitDetail = sys.argv[1]
+  changeQuery = GerritChangeSetQuery(OSEHRA_GERRIT_URL,
+                                     OSEHRA_VISTA_GERRIT_PROJECT_NAME)
+  changeQuery.queryChangeSet()
+  changeQuery.getCommitDetail(commitDetail)
 
 if __name__ == '__main__':
   main()
